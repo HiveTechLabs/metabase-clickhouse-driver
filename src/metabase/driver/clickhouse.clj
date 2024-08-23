@@ -35,11 +35,17 @@
   [_ native-form]
   (sql.u/format-sql-and-fix-params :mysql native-form))
 
+(defn- version-at-least? [major minor db]
+  (try
+    (clickhouse-version/is-at-least? major minor db)
+    (catch Throwable _e
+      false)))
+
 (doseq [[feature supported?] {:standard-deviation-aggregations true
                               :foreign-keys                    (not config/is-test?)
-                              :now                             true
-                              :set-timezone                    true
-                              :convert-timezone                true
+                              :set-timezone                    (partial version-at-least? 23 6)
+                              :convert-timezone                (partial version-at-least? 23 6)
+                              :now                             (partial version-at-least? 23 6)
                               :test/jvm-timezone-setting       false
                               :schemas                         true
                               :datetime-diff                   true
@@ -85,9 +91,12 @@
    options
    (fn [^java.sql.Connection conn]
      (when-not (sql-jdbc.execute/recursive-connection?)
-       (when session-timezone
-         (.setClientInfo conn com.clickhouse.jdbc.ClickHouseConnection/PROP_CUSTOM_HTTP_PARAMS
-                         (format "session_timezone=%s" session-timezone)))
+       (when (and session-timezone ((partial version-at-least? 23 6) db-or-id-or-spec))
+         (try
+           (.setClientInfo conn com.clickhouse.jdbc.ClickHouseConnection/PROP_CUSTOM_HTTP_PARAMS
+                           (format "session_timezone=%s" session-timezone))
+           (catch Throwable e
+             (log/warn e "Failed to set session_timezone. This feature might not be supported in your ClickHouse version."))))
 
        (sql-jdbc.execute/set-best-transaction-level! driver conn)
        (sql-jdbc.execute/set-time-zone-if-supported! driver conn session-timezone)
