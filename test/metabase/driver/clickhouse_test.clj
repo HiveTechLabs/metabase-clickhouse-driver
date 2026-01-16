@@ -127,7 +127,7 @@
        (is (nil? (:select_sequential_consistency (sql-jdbc.conn/connection-details->spec :clickhouse db))))
        (is (nil? (:select_sequential_consistency (sql-jdbc.conn/connection-details->spec :clickhouse nil))))))))
 
-(deftest ^:parallel clickhouse-tls
+(deftest ^:parallel ^:requires-ch-23 clickhouse-tls
   (mt/test-driver
    :clickhouse
    (let [working-dir (System/getProperty "user.dir")
@@ -204,7 +204,7 @@
    (is (= nil (#'clickhouse-qp/extract-datetime-timezone "datetime64")))
    (is (= nil (#'clickhouse-qp/extract-datetime-timezone "datetime64(3)")))))
 
-(deftest ^:synchronized clickhouse-insert
+(deftest ^:synchronized ^:requires-ch-23 clickhouse-insert
   (mt/test-driver
    :clickhouse
    (t2.with-temp/with-temp
