@@ -67,6 +67,28 @@ services:
       - './.docker/clickhouse/single_node/users.xml:/etc/clickhouse-server/users.xml'
 
   ##########################################################################################################
+  # ClickHouse 22.3 (CH driver tests only)
+  # For testing pre-23.6 compatibility (session_timezone not available)
+  ##########################################################################################################
+
+  clickhouse_v22:
+    image: 'clickhouse/clickhouse-server:22.3-alpine'
+    container_name: 'metabase-driver-clickhouse-server-v22'
+    hostname: clickhouse.v22
+    ports:
+      - '8128:8123'
+      - '9004:9000'
+    environment:
+      CLICKHOUSE_SKIP_USER_SETUP: 1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - './.docker/clickhouse/single_node/config.xml:/etc/clickhouse-server/config.xml'
+      - './.docker/clickhouse/single_node/users.xml:/etc/clickhouse-server/users.xml'
+
+  ##########################################################################################################
   # ClickHouse cluster (CH driver SET ROLE tests only)
   # See test/metabase/driver/clickhouse_set_role.clj
   ##########################################################################################################

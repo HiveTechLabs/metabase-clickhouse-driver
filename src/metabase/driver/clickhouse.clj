@@ -35,10 +35,16 @@
   [_ native-form]
   (sql.u/format-sql-and-fix-params :mysql native-form))
 
+(defn- version-at-least? [major minor db]
+  (try
+    (clickhouse-version/is-at-least? major minor db)
+    (catch Throwable _e
+      false)))
+
 (doseq [[feature supported?] {:standard-deviation-aggregations true
-                              :now                             true
-                              :set-timezone                    true
-                              :convert-timezone                false
+                              :now                             (partial version-at-least? 23 6)
+                              :set-timezone                    (partial version-at-least? 23 6)
+                              :convert-timezone                (partial version-at-least? 23 6)
                               :test/jvm-timezone-setting       false
                               :test/date-time-type             false
                               :test/time-type                  false
@@ -95,23 +101,27 @@
    options
    (fn [^java.sql.Connection conn]
      (when-not (sql-jdbc.execute/recursive-connection?)
-       (when session-timezone
-         (let [^com.clickhouse.jdbc.ConnectionImpl clickhouse-conn (.unwrap conn com.clickhouse.jdbc.ConnectionImpl)
-               query-settings  (new QuerySettings)]
-           (.setOption query-settings "session_timezone" session-timezone)
-           (.setDefaultQuerySettings clickhouse-conn query-settings)))
-       (sql-jdbc.execute/set-best-transaction-level! driver conn)
-       (sql-jdbc.execute/set-time-zone-if-supported! driver conn session-timezone)
-       (when-let [db (cond
-                       ;; id?
-                       (integer? db-or-id-or-spec)
-                       (qp.store/with-metadata-provider db-or-id-or-spec
-                         (lib.metadata/database (qp.store/metadata-provider)))
-                       ;; db?
-                       (u/id db-or-id-or-spec)     db-or-id-or-spec
-                       ;; otherwise it's a spec and we can't get the db
-                       :else nil)]
-         (sql-jdbc.execute/set-role-if-supported! driver conn db)))
+       ;; Extract db object if available (needed for version check and role setting)
+       (let [db (cond
+                  ;; id?
+                  (integer? db-or-id-or-spec)
+                  (qp.store/with-metadata-provider db-or-id-or-spec
+                    (lib.metadata/database (qp.store/metadata-provider)))
+                  ;; db?
+                  (u/id db-or-id-or-spec) db-or-id-or-spec
+                  ;; otherwise it's a spec and we can't get the db
+                  :else nil)]
+         ;; Only set session_timezone if we have a db to check version and version is 23.6+
+         ;; session_timezone was introduced in ClickHouse 23.6
+         (when (and session-timezone db (version-at-least? 23 6 db))
+           (let [^com.clickhouse.jdbc.ConnectionImpl clickhouse-conn (.unwrap conn com.clickhouse.jdbc.ConnectionImpl)
+                 query-settings (new QuerySettings)]
+             (.setOption query-settings "session_timezone" session-timezone)
+             (.setDefaultQuerySettings clickhouse-conn query-settings)))
+         (sql-jdbc.execute/set-best-transaction-level! driver conn)
+         (sql-jdbc.execute/set-time-zone-if-supported! driver conn session-timezone)
+         (when db
+           (sql-jdbc.execute/set-role-if-supported! driver conn db))))
      (f conn))))
 
 (def ^:private ^{:arglists '([db-details])} cloud?
