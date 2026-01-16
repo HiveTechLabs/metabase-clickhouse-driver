@@ -170,9 +170,9 @@ CREATE TABLE `metabase_db_scan_test`.`table2` (i Int64) ENGINE = Memory;
 
 -- Base type matching tests
 CREATE TABLE `metabase_test`.`enums_base_types` (
-    c1 Nullable(Enum8('America/New_York')),
+    c1 Nullable(Enum8('America/New_York' = 1)),
     c2 Enum8('BASE TABLE' = 1, 'VIEW' = 2, 'FOREIGN TABLE' = 3, 'LOCAL TEMPORARY' = 4, 'SYSTEM VIEW' = 5),
-    c3 Enum8('NO', 'YES'),
+    c3 Enum8('NO' = 1, 'YES' = 2),
     c4 Enum16('SHOW DATABASES' = 0, 'SHOW TABLES' = 1, 'SHOW COLUMNS' = 2),
     c5 Nullable(Enum8('GLOBAL' = 0, 'DATABASE' = 1, 'TABLE' = 2)),
     c6 Nullable(Enum16('SHOW DATABASES' = 0, 'SHOW TABLES' = 1, 'SHOW COLUMNS' = 2))
