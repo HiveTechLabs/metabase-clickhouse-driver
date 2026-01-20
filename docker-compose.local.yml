@@ -1,0 +1,46 @@
+services:
+  # ClickHouse 22.3 for testing
+  clickhouse:
+    image: 'clickhouse/clickhouse-server:22.3-alpine'
+    container_name: 'clickhouse-local'
+    hostname: clickhouse
+    ports:
+      - '8123:8123'
+      - '9000:9000'
+    environment:
+      CLICKHOUSE_SKIP_USER_SETUP: 1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - './.docker/clickhouse/single_node/config.xml:/etc/clickhouse-server/config.xml'
+      - './.docker/clickhouse/single_node/users.xml:/etc/clickhouse-server/users.xml'
+      - 'clickhouse_data:/var/lib/clickhouse'
+
+  # Metabase with local driver
+  metabase:
+    image: metabase/metabase:v0.53.18
+    container_name: 'metabase-local'
+    hostname: metabase
+    depends_on:
+      - clickhouse
+    environment:
+      MB_HTTP_TIMEOUT: '5000'
+      JAVA_TIMEZONE: 'UTC'
+    ports:
+      - '3000:3000'
+    volumes:
+      # Mount the locally built driver JAR
+      - './target/clickhouse.metabase-driver.jar:/plugins/clickhouse.metabase-driver.jar'
+      # Persist Metabase data
+      - 'metabase_data:/metabase.db'
+    healthcheck:
+      test: curl --fail -X GET -I http://localhost:3000/api/health || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  clickhouse_data:
+  metabase_data:
